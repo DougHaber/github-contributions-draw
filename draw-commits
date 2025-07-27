@@ -1,0 +1,54 @@
+#!/usr/bin/env python3
+
+import argparse
+import os
+import subprocess
+import sys
+from datetime import datetime, timedelta
+
+
+def find_first_sunday(year: int) -> datetime:
+    jan1 = datetime(year, 1, 1)
+    days_ahead = (6 - jan1.weekday()) % 7
+    return jan1 + timedelta(days=days_ahead)
+
+
+def make_commit(commit_date: datetime, message: str, dry_run: bool) -> None:
+    date_str = commit_date.strftime('%Y-%m-%dT12:00:00')
+    if dry_run:
+        print(f"[dry-run] {date_str}: {message}")
+        return
+    env = {
+        "GIT_AUTHOR_DATE": date_str,
+        "GIT_COMMITTER_DATE": date_str,
+        **os.environ,
+    }
+    subprocess.run(
+        ["git", "commit", "--allow-empty", "-m", message],
+        env=env,
+        check=True,
+    )
+
+
+def process_grid(start_date: datetime, lines: list[str], dry_run: bool) -> None:
+    for row, line in enumerate(lines):
+        for col, char in enumerate(line.rstrip("\n")):
+            if char != " ":
+                delta = timedelta(days=col * 7 + row)
+                make_commit(start_date + delta, "pixel", dry_run)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-y", "--year", type=int, required=True)
+    parser.add_argument("--dryrun", action="store_true")
+    parser.add_argument("file", nargs="?", type=argparse.FileType("r"), default=sys.stdin)
+    args = parser.parse_args()
+
+    start = find_first_sunday(args.year)
+    lines = args.file.read().splitlines()[0:7]
+    process_grid(start, lines, args.dryrun)
+
+
+if __name__ == "__main__":
+    main()
