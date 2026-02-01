@@ -31,23 +31,32 @@ def make_commit(commit_date: datetime, message: str, dry_run: bool) -> None:
 
 
 def process_grid(start_date: datetime, lines: list[str], dry_run: bool) -> None:
+    target_year = start_date.year
     for row, line in enumerate(lines):
         for col, char in enumerate(line.rstrip("\n")):
             if char != " ":
                 delta = timedelta(days=col * 7 + row)
-                make_commit(start_date + delta, "pixel", dry_run)
+                commit_date = start_date + delta
+                if commit_date.year != target_year:
+                    sys.exit(f"ERROR: pattern extends past {target_year}")
+                make_commit(commit_date, "pixel", dry_run)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("-y", "--year", type=int, required=True)
-    parser.add_argument("--dryrun", action="store_true")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print the dates commits would have been created without writing them",
+    )
+    parser.add_argument("-y", "--year", type=int, required=True,
+                        help="Target year for generated commits")
     parser.add_argument("file", nargs="?", type=argparse.FileType("r"), default=sys.stdin)
     args = parser.parse_args()
 
     start = find_first_sunday(args.year)
     lines = args.file.read().splitlines()[0:7]
-    process_grid(start, lines, args.dryrun)
+    process_grid(start, lines, args.dry_run)
 
 
 if __name__ == "__main__":
